@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>PONTIFEX — Análisis estructural de puentes reticulares</title>
 <style>
   :root {
@@ -24,15 +24,16 @@
     display: flex; align-items: center; gap: 14px;
     padding: 6px 12px; background: var(--bg2);
     border-bottom: 1px solid var(--line); flex: 0 0 auto;
+    min-height: 42px;
   }
-  #topbar h1 { font-size: 15px; letter-spacing: 2px; color: var(--acc); font-weight: 700; }
+  #topbar h1 { font-size: 15px; letter-spacing: 2px; color: var(--acc); font-weight: 700; white-space: nowrap; }
   #topbar h1 small { color: var(--txt2); letter-spacing: 0; font-weight: 400; font-size: 11px; margin-left: 6px; }
-  .stat { font-family: var(--mono); font-size: 12px; color: var(--txt2); }
+  .stat { font-family: var(--mono); font-size: 12px; color: var(--txt2); white-space: nowrap; }
   .stat b { color: var(--txt); font-weight: 600; }
   .stat b.mal { color: var(--err); }
   .stat b.bien { color: var(--ok); }
   #estado {
-    margin-left: auto; font-family: var(--mono); font-size: 12px;
+    margin-left: auto; font-family: var(--mono); font-size: 12px; white-space: nowrap;
     padding: 3px 10px; border-radius: 3px; background: var(--bg3);
     border: 1px solid var(--line);
   }
@@ -41,12 +42,12 @@
   #estado.trabajando { color: var(--warn); border-color: var(--warn); }
 
   /* ---------- Layout ---------- */
-  #main { display: flex; flex: 1 1 auto; min-height: 0; }
+  #main { display: flex; flex: 1 1 auto; min-height: 0; position: relative; }
   aside { background: var(--bg2); overflow-y: auto; flex: 0 0 auto; }
   #panel-izq { width: 218px; border-right: 1px solid var(--line); padding: 10px; }
   #panel-der { width: 330px; border-left: 1px solid var(--line); display: flex; flex-direction: column; }
   #lienzo-wrap { flex: 1 1 auto; position: relative; min-width: 0; }
-  #cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 
   h3 {
     font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
@@ -113,6 +114,46 @@
     font-size: 10.5px; font-family: var(--mono); pointer-events: none; z-index: 4;
     background: rgba(14,20,32,.7); padding: 3px 8px; border-radius: 3px;
   }
+
+  /* ---------- FABs y fondo (solo móvil) ---------- */
+  .fab {
+    display: none; position: fixed; bottom: 18px; z-index: 40;
+    width: 54px; height: 54px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25);
+    background: var(--acc); color: #06121f; font-size: 24px; font-weight: 700;
+    align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45); cursor: pointer;
+  }
+  #fab-tools { left: 16px; }
+  #fab-log { right: 16px; background: var(--bg3); color: var(--acc); }
+  .fab.on { outline: 3px solid var(--warn); }
+  #backdrop {
+    display: none; position: fixed; inset: 0; z-index: 25;
+    background: rgba(4,8,16,.55);
+  }
+
+  /* ---------- Móvil / pantallas estrechas ---------- */
+  @media (max-width: 900px) {
+    #lienzo-wrap { position: absolute; inset: 0; }
+    aside {
+      position: fixed; top: 42px; bottom: 0; z-index: 30;
+      transition: transform .22s ease-out;
+      box-shadow: 0 0 24px rgba(0,0,0,.5);
+    }
+    #panel-izq { left: 0; width: 250px; transform: translateX(-106%); padding-bottom: 96px; }
+    #panel-der { right: 0; width: 310px; max-width: 86vw; transform: translateX(106%); padding-bottom: 96px; }
+    #panel-izq.abierto, #panel-der.abierto { transform: none; }
+    .fab { display: flex; }
+    #backdrop.on { display: block; }
+    #ayuda { display: none; }
+    #topbar { gap: 9px; padding: 5px 9px; overflow-x: auto; }
+    #topbar h1 small { display: none; }
+    .stat { font-size: 11px; }
+    #estado { font-size: 10.5px; padding: 3px 7px; }
+    .btn { padding: 9px 10px; font-size: 13px; }
+    .mat-item { padding: 8px; font-size: 12.5px; }
+    select { padding: 8px; font-size: 13px; }
+  }
 </style>
 </head>
 <body>
@@ -171,6 +212,10 @@
     <div id="log"></div>
   </aside>
 </div>
+
+<button class="fab" id="fab-tools" title="Herramientas">☰</button>
+<button class="fab" id="fab-log" title="Registro / EC3">≡</button>
+<div id="backdrop"></div>
 
 <script src="solver.js"></script>
 <script src="app-model.js"></script>
