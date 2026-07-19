@@ -3,9 +3,10 @@
    ================================================================ */
 const SNAP = 0.5;
 const snap = v => Math.round(v / SNAP) * SNAP;
+const TACTIL = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
 
 function nodoEn(px, py) {
-  let mejor = -1, dMin = 11;
+  let mejor = -1, dMin = TACTIL ? 24 : 11;
   for (let i = 0; i < S.nodos.length; i++) {
     const [sx, sy] = w2s(S.nodos[i].x, S.nodos[i].y);
     const d = Math.hypot(sx - px, sy - py);
@@ -14,7 +15,7 @@ function nodoEn(px, py) {
   return mejor;
 }
 function barraEn(px, py) {
-  let mejor = -1, dMin = 8;
+  let mejor = -1, dMin = TACTIL ? 18 : 8;
   for (let i = 0; i < S.barras.length; i++) {
     const b = S.barras[i];
     const A = S.nodos[b.a], B = S.nodos[b.b];
@@ -163,21 +164,56 @@ window.addEventListener('keydown', e => {
   }
 });
 
-/* ---------- Soporte táctil: traduce toques a eventos de ratón ---------- */
+/* ---------- Soporte táctil: 1 dedo = herramienta · 2 dedos = zoom/pan ---------- */
+let pellizco = null;
 cv.addEventListener('touchstart', e => {
   e.preventDefault();
+  if (e.touches.length === 2) {
+    const r = cv.getBoundingClientRect();
+    pellizco = {
+      d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY),
+      cx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+      cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top
+    };
+    S.arrastre = null;
+    return;
+  }
   const t = e.changedTouches[0];
   cv.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, button: 0, bubbles: true }));
 }, { passive: false });
 cv.addEventListener('touchmove', e => {
   e.preventDefault();
+  if (e.touches.length === 2 && pellizco) {
+    const r = cv.getBoundingClientRect();
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+    const [wx, wy] = s2w(pellizco.cx, pellizco.cy);
+    S.cam.esc = Math.max(4, Math.min(220, S.cam.esc * (d / pellizco.d)));
+    const [nx, ny] = s2w(cx, cy);
+    S.cam.x += wx - nx; S.cam.y += wy - ny;
+    pellizco = { d, cx, cy };
+    return;
+  }
   const t = e.changedTouches[0];
   cv.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
 }, { passive: false });
 cv.addEventListener('touchend', e => {
   e.preventDefault();
-  window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  if (e.touches.length < 2) pellizco = null;
+  if (e.touches.length === 0) window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 }, { passive: false });
+
+/* ---------- Cajones laterales (móvil) ---------- */
+function cajon(nombre, abrir) {
+  const panel = $(nombre === 'izq' ? 'panel-izq' : 'panel-der');
+  const fab = $(nombre === 'izq' ? 'fab-tools' : 'fab-log');
+  panel.classList.toggle('abierto', abrir);
+  fab.classList.toggle('on', abrir);
+  $('backdrop').classList.toggle('on',
+    $('panel-izq').classList.contains('abierto') || $('panel-der').classList.contains('abierto'));
+}
+function cerrarCajones() { cajon('izq', false); cajon('der', false); }
 
 /* ---------------- Ejemplo: cercha Pratt ---------------- */
 function cargarPratt() {
@@ -226,7 +262,7 @@ function boot() {
   const selV = $('sel-vehiculo');
   for (const [id, v] of Object.entries(VEHICULOS)) selV.add(new Option(v.nombre, id));
   selV.value = S.vehiculo;
-  selV.addEventListener('change', () => { S.vehiculo = selV.value; });
+  selV.addEventListener('change', () => { S.vehiculo = selV.value; if (TACTIL) cerrarCajones(); });
 
   const mats = $('lista-mats');
   for (const m of Object.values(MATERIALS)) {
@@ -238,6 +274,7 @@ function boot() {
     d.addEventListener('click', () => {
       S.mat = m.id;
       mats.querySelectorAll('.mat-item').forEach(x => x.classList.toggle('activo', x.dataset.mat === m.id));
+      if (TACTIL) cerrarCajones();
     });
     mats.appendChild(d);
   }
@@ -246,9 +283,14 @@ function boot() {
     S.herr = b.dataset.h;
     S.pendienteNodo = -1;
     document.querySelectorAll('.herr').forEach(x => x.classList.toggle('activo', x === b));
+    if (TACTIL) cerrarCajones();
   }));
 
-  $('btn-ensayar').addEventListener('click', iniciarEnsayo);
+  $('fab-tools').addEventListener('click', () => cajon('izq', !$('panel-izq').classList.contains('abierto')));
+  $('fab-log').addEventListener('click', () => cajon('der', !$('panel-der').classList.contains('abierto')));
+  $('backdrop').addEventListener('click', cerrarCajones);
+
+  $('btn-ensayar').addEventListener('click', () => { cerrarCajones(); iniciarEnsayo(); });
   $('btn-detener').addEventListener('click', () => detenerEnsayo('Ensayo detenido.'));
   $('btn-reparar').addEventListener('click', reparar);
   $('btn-limpiar').addEventListener('click', () => {
@@ -256,7 +298,7 @@ function boot() {
     cargarEscenario(S.escenario);
     log('Estructura demolida. Apoyos de estribo conservados.', 'info');
   });
-  $('btn-ejemplo').addEventListener('click', cargarPratt);
+  $('btn-ejemplo').addEventListener('click', () => { cerrarCajones(); cargarPratt(); });
   $('btn-pesopropio').addEventListener('click', () => {
     if (S.barras.length === 0) { log('No hay estructura.', 'warn'); return; }
     const r = pasoELU([]);
@@ -284,6 +326,7 @@ function boot() {
   cargarEscenario('vado16');
   log('PONTIFEX listo. Flujo: ① nodos/barras (o carga la Pratt de ejemplo) → ② marca el tablero → ③ ▶ Ensayar.', 'ok');
   log('Chequeo ELU: tracción fy/γM y pandeo EC3 (curvas χ). Cables solo a tracción. Apoyos solo sobre roca sombreada.', 'info');
+  cargarPratt(); // auto-carga: el puente se ve nada más abrir
   requestAnimationFrame(bucle);
 }
 
@@ -293,7 +336,7 @@ function bucle(t) {
   ultT = t;
   if (S.sim) pasoSim(dt * S.velocidad);
   if (S.colapso) pasoColapso(dt);
-  render();
+  render(t);
   requestAnimationFrame(bucle);
 }
 
