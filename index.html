@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PONTIFEX — Análisis estructural de puentes reticulares</title>
+<style>
+  :root {
+    --bg: #0e1420; --bg2: #151d2e; --bg3: #1c2740;
+    --line: #2a3a5c; --txt: #d7e2f4; --txt2: #8fa3c8;
+    --acc: #4dabf7; --ok: #51cf66; --warn: #ffd43b; --err: #fa5252;
+    --mono: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--txt);
+    font: 13px/1.45 'Segoe UI', system-ui, sans-serif;
+    display: flex; flex-direction: column;
+  }
+
+  /* ---------- Barra superior ---------- */
+  #topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 6px 12px; background: var(--bg2);
+    border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  }
+  #topbar h1 { font-size: 15px; letter-spacing: 2px; color: var(--acc); font-weight: 700; }
+  #topbar h1 small { color: var(--txt2); letter-spacing: 0; font-weight: 400; font-size: 11px; margin-left: 6px; }
+  .stat { font-family: var(--mono); font-size: 12px; color: var(--txt2); }
+  .stat b { color: var(--txt); font-weight: 600; }
+  .stat b.mal { color: var(--err); }
+  .stat b.bien { color: var(--ok); }
+  #estado {
+    margin-left: auto; font-family: var(--mono); font-size: 12px;
+    padding: 3px 10px; border-radius: 3px; background: var(--bg3);
+    border: 1px solid var(--line);
+  }
+  #estado.ok { color: var(--ok); border-color: var(--ok); }
+  #estado.mal { color: var(--err); border-color: var(--err); }
+  #estado.trabajando { color: var(--warn); border-color: var(--warn); }
+
+  /* ---------- Layout ---------- */
+  #main { display: flex; flex: 1 1 auto; min-height: 0; }
+  aside { background: var(--bg2); overflow-y: auto; flex: 0 0 auto; }
+  #panel-izq { width: 218px; border-right: 1px solid var(--line); padding: 10px; }
+  #panel-der { width: 330px; border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+  #lienzo-wrap { flex: 1 1 auto; position: relative; min-width: 0; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+
+  h3 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--txt2); margin: 12px 0 6px; border-bottom: 1px solid var(--line);
+    padding-bottom: 3px;
+  }
+  h3:first-child { margin-top: 0; }
+
+  .btn {
+    display: block; width: 100%; text-align: left; margin: 2px 0;
+    padding: 6px 9px; background: var(--bg3); color: var(--txt);
+    border: 1px solid var(--line); border-radius: 4px; cursor: pointer;
+    font: 12px 'Segoe UI', system-ui, sans-serif;
+  }
+  .btn:hover { border-color: var(--acc); }
+  .btn.activo { background: var(--acc); color: #06121f; font-weight: 600; border-color: var(--acc); }
+  .btn.accion { text-align: center; font-weight: 600; }
+  .btn.play { background: #2b8a3e; border-color: #2b8a3e; color: #fff; }
+  .btn.play:hover { background: #37b24d; }
+  .btn.stop { background: #c92a2a; border-color: #c92a2a; color: #fff; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .mat-item {
+    display: block; padding: 5px 8px; margin: 2px 0; border-radius: 4px;
+    border: 1px solid var(--line); cursor: pointer; font-size: 11.5px;
+  }
+  .mat-item small { display: block; color: var(--txt2); font-family: var(--mono); font-size: 10px; }
+  .mat-item.activo { border-color: var(--acc); background: var(--bg3); }
+  .mat-item .punto { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+
+  select, input[type=range] { width: 100%; margin: 3px 0; background: var(--bg3); color: var(--txt); border: 1px solid var(--line); border-radius: 4px; padding: 5px; }
+  label.chk { display: block; font-size: 12px; padding: 2px 0; cursor: pointer; color: var(--txt2); }
+  label.chk input { margin-right: 6px; }
+
+  /* ---------- Panel derecho ---------- */
+  #info-barra {
+    padding: 10px; border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11.5px; flex: 0 0 auto;
+    max-height: 42%; overflow-y: auto;
+  }
+  #info-barra .fila { display: flex; justify-content: space-between; padding: 1px 0; }
+  #info-barra .fila span:last-child { color: var(--txt); }
+  #info-barra .fila span:first-child { color: var(--txt2); }
+  #info-barra .u-grande { font-size: 20px; font-weight: 700; text-align: center; padding: 4px 0; }
+  #log {
+    flex: 1 1 auto; overflow-y: auto; padding: 8px 10px;
+    font-family: var(--mono); font-size: 11px; line-height: 1.6;
+  }
+  #log .l { border-left: 2px solid var(--line); padding-left: 7px; margin-bottom: 3px; white-space: pre-wrap; }
+  #log .l.info { border-color: var(--acc); color: var(--txt2); }
+  #log .l.ok { border-color: var(--ok); color: var(--ok); }
+  #log .l.warn { border-color: var(--warn); color: var(--warn); }
+  #log .l.err { border-color: var(--err); color: var(--err); }
+
+  #banner {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    padding: 8px 22px; border-radius: 4px; font: 700 15px var(--mono);
+    display: none; z-index: 5; letter-spacing: 1px;
+  }
+  #banner.ok { display: block; background: rgba(43,138,62,.92); color: #fff; }
+  #banner.mal { display: block; background: rgba(201,42,42,.92); color: #fff; }
+  #ayuda {
+    position: absolute; bottom: 8px; left: 10px; color: var(--txt2);
+    font-size: 10.5px; font-family: var(--mono); pointer-events: none; z-index: 4;
+    background: rgba(14,20,32,.7); padding: 3px 8px; border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <h1>PONTIFEX<small>análisis estructural de reticulados · método de rigidez · EC3</small></h1>
+  <span class="stat">Coste <b id="st-coste">0 €</b></span>
+  <span class="stat">Peso <b id="st-peso">0 kg</b></span>
+  <span class="stat">u<sub>máx</sub> <b id="st-u">—</b></span>
+  <span class="stat">Flecha <b id="st-flecha">—</b></span>
+  <span id="estado">SIN ENSAYAR</span>
+</header>
+
+<div id="main">
+  <aside id="panel-izq">
+    <h3>Escenario</h3>
+    <select id="sel-escenario"></select>
+    <button class="btn accion" id="btn-ejemplo">Cargar cercha Pratt de ejemplo</button>
+    <button class="btn accion" id="btn-limpiar">Demoler estructura</button>
+
+    <h3>Herramienta</h3>
+    <button class="btn herr activo" data-h="seleccionar">⬚ Seleccionar / mover</button>
+    <button class="btn herr" data-h="nodo">· Añadir nudo</button>
+    <button class="btn herr" data-h="barra">— Añadir barra</button>
+    <button class="btn herr" data-h="apoyo">△ Apoyo (art. / rodillo)</button>
+    <button class="btn herr" data-h="tablero">▬ Marcar tablero</button>
+    <button class="btn herr" data-h="borrar">✕ Borrar</button>
+
+    <h3>Material</h3>
+    <div id="lista-mats"></div>
+
+    <h3>Ensayo de carga</h3>
+    <select id="sel-vehiculo"></select>
+    <button class="btn accion play" id="btn-ensayar">▶ Ensayar paso de vehículo</button>
+    <button class="btn accion" id="btn-pesopropio">∑ Calcular peso propio (ELU)</button>
+    <button class="btn accion stop" id="btn-detener" disabled>⏹ Detener</button>
+    <button class="btn accion" id="btn-reparar" disabled>⚒ Reparar roturas</button>
+    <label style="font-size:11px;color:var(--txt2)">Velocidad <span id="vel-txt">1,0×</span></label>
+    <input type="range" id="vel" min="0.25" max="4" step="0.25" value="1">
+
+    <h3>Visualización</h3>
+    <label class="chk"><input type="checkbox" id="ver-deformada" checked>Deformada (auto-escalada)</label>
+    <label class="chk"><input type="checkbox" id="ver-axiles">Axiles N (kN)</label>
+    <label class="chk"><input type="checkbox" id="ver-reacciones" checked>Reacciones</label>
+    <label class="chk"><input type="checkbox" id="ver-rejilla" checked>Rejilla 1 m</label>
+  </aside>
+
+  <div id="lienzo-wrap">
+    <canvas id="cv"></canvas>
+    <div id="banner"></div>
+    <div id="ayuda">clic izq: usar herramienta · arrastrar fondo: desplazar · rueda: zoom · Supr: borrar · Esc: cancelar</div>
+  </div>
+
+  <aside id="panel-der">
+    <div id="info-barra"><span style="color:var(--txt2)">Selecciona una barra para ver su chequeo EC3…</span></div>
+    <div id="log"></div>
+  </aside>
+</div>
+
+<script src="solver.js"></script>
+<script src="app-model.js"></script>
+<script src="app-ensayo.js"></script>
+<script src="app-render.js"></script>
+<script src="app-ui.js"></script>
+</body>
+</html>
