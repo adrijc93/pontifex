@@ -143,6 +143,8 @@ function ajustarVista() {
   S.cam.y = (y0 + y1) / 2;
   S.cam.esc = Math.min(W / (x1 - x0), H / (y1 - y0));
   S.cam.esc = Math.min(S.cam.esc, 60);
+  // en pantalla vertical (móvil): tablero al ~64% de altura, como en los juegos
+  if (H > W) S.cam.y = 0.14 * H / S.cam.esc;
 }
 
 /* ---------------- HUD ---------------- */
